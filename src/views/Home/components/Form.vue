@@ -1,12 +1,12 @@
 <template>
   <div class="home-right">
     <el-form
-      :label-position="labelPosition"
-      label-width="100px"
-      ref="ruleForm"
-      :rules="rules"
-      :model="form"
-      style="max-width: 460px"
+        :label-position="labelPosition"
+        label-width="100px"
+        ref="ruleForm"
+        :rules="rules"
+        :model="form"
+        style="max-width: 460px"
     >
       <el-row :gutter="20">
         <el-col :span="24">
@@ -42,16 +42,18 @@
             <el-input-number :min="0" v-model="form.average"/>
           </el-form-item>
         </el-col>
-        <el-col :span="12">
-          <el-form-item label="纳地上限" prop="landMax">
-            <el-input-number :min="0" v-model="form.landMax"/>
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="承天上限" prop="skyMax">
-            <el-input-number :min="0" v-model="form.skyMax"/>
-          </el-form-item>
-        </el-col>
+        <!--        <el-col :span="12">-->
+        <!--          <el-form-item label="纳地上限" prop="landMax">-->
+        <!--&lt;!&ndash;            <el-input-number :min="0" v-model="form.landMax"/>&ndash;&gt;-->
+        <!--            {{form.landMax}}-->
+        <!--          </el-form-item>-->
+        <!--        </el-col>-->
+        <!--        <el-col :span="12">-->
+        <!--          <el-form-item label="承天上限" prop="skyMax">-->
+        <!--&lt;!&ndash;            <el-input-number :min="0" v-model="form.skyMax"/>&ndash;&gt;-->
+        <!--            {{form.skyMax}}-->
+        <!--          </el-form-item>-->
+        <!--        </el-col>-->
         <el-col :span="12">
           <el-form-item label="纳地单次幸运" prop="landLucky">
             <el-input-number :min="0" v-model="form.landLucky"/>
@@ -103,9 +105,11 @@ Object.assign(form, {
   choose: 1,
   checkedType: ['sky'],
   lucky: 100,
-  landBase: 2,
+  landBase: 1,
   landMax: 5,
-  skyMax: 4,
+  skyMax: 3,
+  landLucky: 1.3,
+  skyLucky: 5.6
 })
 const ruleForm = ref(null)
 const validatePass = (rule, value, callback) => {
@@ -193,49 +197,102 @@ const rules = reactive({
 const labelPosition = ref('top')
 
 const luckyCalculate = () => {
+  let list = [];
   let base, firstCycle, secondCycle, firstLucky, secondLucky;
-  // 考虑到大小稀有切换，单次基础承天or纳地不一样，故动态设置遍历的先后顺序
+  // 考虑到大小稀有切换，单次基础承天or纳地不一样，计算方式也不一样
   if (form.choose === 1) {
     base = form.landBase;
     firstCycle = form.landMax;
     secondCycle = form.skyMax;
     firstLucky = form.landLucky;
     secondLucky = form.skyLucky;
+
+    for (let i = base; i <= firstCycle; i++) {
+      // 纳地的幸运值
+      let mLuck = (i - base) * firstLucky;
+      let nLuckList = [];
+      if (i - base !== 0) {
+        for (let j = 0; j <= secondCycle; j++) {
+          let nLuck = j * secondLucky;
+          nLuckList.push({
+            count: j, // 承天数量
+            nLuck: nLuck, // 承天的幸运值
+          });
+        }
+      }
+
+      nLuckList.forEach(v => {
+        const sum = parseFloat((mLuck + v.nLuck).toFixed(3));
+        list.push({
+          skyNumber: v.count, // 承天数量
+          landNumber: i, // 纳地数量
+          sum: sum, // 一手承天+纳地的幸运值
+          high: parseFloat((form.high + sum).toFixed(3)), // 一手百炼的幸运值
+          average: parseFloat((form.average + sum).toFixed(3)), // 一手普紫的幸运值
+        })
+      })
+    }
   } else {
     base = form.skyBase;
     firstCycle = form.skyMax;
     secondCycle = form.landMax;
     firstLucky = form.skyLucky;
     secondLucky = form.landLucky;
+
+    for (let i = base; i <= firstCycle; i++) {
+      // 承天的幸运值
+      let mLuck = (i - base) * firstLucky;
+      let nLuckList = [];
+      let jInit = i - base === 0 ? 0 : 1; // 不勾选使用承天纳地增长幸运值时判断
+      for (let j = jInit; j <= secondCycle; j++) {
+        let nLuck = j * secondLucky;
+        nLuckList.push({
+          count: j, // 纳地数量
+          nLuck: nLuck, // 纳地的幸运值
+        });
+      }
+
+      nLuckList.forEach(v => {
+        const sum = parseFloat((mLuck + v.nLuck).toFixed(3));
+        list.push({
+          skyNumber: i, // 承天数量
+          landNumber: v.count, // 纳地数量
+          sum: sum, // 一手承天+纳地的幸运值
+          high: parseFloat((form.high + sum).toFixed(3)), // 一手百炼的幸运值
+          average: parseFloat((form.average + sum).toFixed(3)), // 一手普紫的幸运值
+        })
+      })
+    }
   }
   const highSort = form.checkedType.indexOf('high') !== -1 ? 1 : 0;
   const skySort = form.checkedType.indexOf('sky') !== -1 ? 1 : 0;
   const landSort = form.checkedType.indexOf('land') !== -1 ? 1 : 0;
 
-  let list = [];
-  for (let i = base; i <= firstCycle; i++) {
-    // 承天or纳地的幸运值
-    let mLuck = (i - base) * firstLucky;
-    let nLuckList = [];
-    for (let j = 0; j <= secondCycle; j++) {
-      let nLuck = j * secondLucky;
-      nLuckList.push({
-        count: j, // 纳地数量
-        nLuck: nLuck, // 纳地or承天的幸运值
-      });
-    }
 
-    nLuckList.forEach(v => {
-      const sum = parseFloat((mLuck + v.nLuck).toFixed(3));
-      list.push({
-        skyNumber: i, // 承天数量
-        landNumber: v.count, // 纳地数量
-        sum: sum, // 一手承天+纳地的幸运值
-        high: parseFloat((form.high + sum).toFixed(3)), // 一手百炼的幸运值
-        average: parseFloat((form.average + sum).toFixed(3)), // 一手普紫的幸运值
-      })
-    })
-  }
+  // for (let i = base; i <= firstCycle; i++) {
+  //   // 承天or纳地的幸运值
+  //   let mLuck = (i - base) * firstLucky;
+  //   let nLuckList = [];
+  //   for (let j = 1; j <= secondCycle; j++) {
+  //     let nLuck = j * secondLucky;
+  //     nLuckList.push({
+  //       count: j, // 纳地数量
+  //       nLuck: nLuck, // 纳地or承天的幸运值
+  //     });
+  //   }
+  //
+  //   nLuckList.forEach(v => {
+  //     const sum = parseFloat((mLuck + v.nLuck).toFixed(3));
+  //     list.push({
+  //       skyNumber: i, // 承天数量
+  //       landNumber: v.count, // 纳地数量
+  //       sum: sum, // 一手承天+纳地的幸运值
+  //       high: parseFloat((form.high + sum).toFixed(3)), // 一手百炼的幸运值
+  //       average: parseFloat((form.average + sum).toFixed(3)), // 一手普紫的幸运值
+  //     })
+  //   })
+  // }
+
 
   let temp = [];
   const highList = list.map(v => v.high);
@@ -248,40 +305,40 @@ const luckyCalculate = () => {
   for (let i = 0; i <= highMax; i++) {
     for (let j = 0; j <= averageMax; j++) {
       list.forEach(v => {
-          list.forEach(v1 => {
-            const skyNumber = i * v.skyNumber + j * v1.skyNumber;
-            const landNumber = i * v.landNumber + j * v1.landNumber;
-            const optimal = i * highSort + skyNumber * skySort + (landNumber / 5) * landSort; // 综合排序
-            // 遍历出幸运值大于form.lucky的方案
-            if ((i * v.high + j * v1.average) >= form.lucky) {
-              if (temp.length) {
-                const objIndex = temp.findIndex(v2 => v2.highCount === i && v2.averageCount === j);
-                // 剔除掉 大于form.lucky后的无效方案，比如100幸运，后续会有103、107、110等方案，实际上最有103才有价值
-                if (objIndex === -1) {
+            list.forEach(v1 => {
+              const skyNumber = i * v.skyNumber + j * v1.skyNumber;
+              const landNumber = i * v.landNumber + j * v1.landNumber;
+              const optimal = i * highSort + skyNumber * skySort + (landNumber / 5) * landSort; // 综合排序
+              // 遍历出幸运值大于form.lucky的方案
+              if ((i * v.high + j * v1.average) >= form.lucky) {
+                if (temp.length) {
+                  const objIndex = temp.findIndex(v2 => v2.highCount === i && v2.averageCount === j);
+                  // 剔除掉 大于form.lucky后的无效方案，比如100幸运，后续会有103、107、110等方案，实际上最有103才有价值
+                  if (objIndex === -1) {
+                    temp.push({
+                      highCount: i,
+                      averageCount: j,
+                      skyNumber: skyNumber,
+                      landNumber: landNumber,
+                      highObj: v,
+                      averageObj: v1,
+                      optimal: optimal
+                    })
+                  }
+                } else {
                   temp.push({
-                    highCount: i,
-                    averageCount: j,
-                    skyNumber: skyNumber,
-                    landNumber: landNumber,
-                    highObj: v,
-                    averageObj: v1,
-                    optimal: optimal
+                    highCount: i, // 百炼装备数量
+                    averageCount: j, // 普紫装备数量
+                    skyNumber: skyNumber, // 承天数量
+                    landNumber: landNumber, // 纳地数量
+                    highObj: v, // 百炼搭配方案
+                    averageObj: v1,// 普紫搭配方案
+                    optimal: optimal, // 综合排序
                   })
                 }
-              } else {
-                temp.push({
-                  highCount: i, // 百炼装备数量
-                  averageCount: j, // 普紫装备数量
-                  skyNumber: skyNumber, // 承天数量
-                  landNumber: landNumber, // 纳地数量
-                  highObj: v, // 百炼搭配方案
-                  averageObj: v1,// 普紫搭配方案
-                  optimal: optimal, // 综合排序
-                })
               }
-            }
-          })
-        }
+            })
+          }
       )
     }
   }
@@ -301,15 +358,19 @@ const changeData = () => {
   if (form.choose === 1) {
     form.checkedType = ['sky'];
     form.lucky = 100;
-    form.landBase = 2;
+    form.landBase = 1;
     form.landMax = 5;
-    form.skyMax = 4;
+    form.skyMax = 3;
+    form.landLucky = 1.3;
+    form.skyLucky = 5.6;
   } else {
     form.checkedType = ['sky'];
     form.lucky = 100;
     form.skyBase = 2;
     form.landMax = 4;
     form.skyMax = 5;
+    form.landLucky = 0.6;
+    form.skyLucky = 2.6;
   }
 }
 const chooseChange = () => {
